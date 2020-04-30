@@ -3,7 +3,6 @@ import numpy as np
 import sympy as sym
 from NC5_NonDim import NC5_NonDim
 from pdgf import pdgf
-from GRAD import GRAD
 from sympy import symbols
 from sympy import atan2,Abs
 import os
