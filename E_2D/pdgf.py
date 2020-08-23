@@ -4,7 +4,7 @@ import os
 ##################################################
 
 #Thisfunction calculates the concentration of PDGFs
-def pdgf(counter,kk,u,vtkfile7,vtkfile8,cc) :
+def pdgf(counter,kk,u,vtkfile7,vtkfile8,a) :
 
         #Changing the directory to the lustre directory
         os.chdir("HPC home directory")
@@ -49,7 +49,7 @@ def pdgf(counter,kk,u,vtkfile7,vtkfile8,cc) :
 
         #Finding Center of mass for the reference domain
         position_1 = Function(V_1)
-        position_1.assign(Expression(["x[0]", "x[1]"], element=V_1.ufl_element()))
+        position_1.assign(Expression(["x[0]", "x[1]","x[2]"], element=V_1.ufl_element()))
         c_1 = TestFunction(R_1)
         volume_1 = assemble(Constant(1.0)*dx(domain=Domain))
         centroid_1 = assemble(dot(c_1, position_1)*dx)
@@ -58,20 +58,21 @@ def pdgf(counter,kk,u,vtkfile7,vtkfile8,cc) :
         #######################################################################
 
         #Defining material points for tracking the lesion
-        aa1 = Expression('sqrt(pow(x[0]-c,2))',degree=0,c=0.2)
-        bb1 = Expression('sqrt(pow(x[1]-c,2))',degree=0,c=-0.55)
+        aa = Expression('x[0]',degree=0)
+        bb = Expression('x[1]',degree=0)
 
-        aaa1 = project(aa1,W_1)
-        bbb1 = project(bb1,W_1)
+        aaa = project(aa,W_1)
+        bbb = project(bb,W_1)
         #######################################################################
 
 
         #Moving the mesh and recentering
+
         ALE.move(Domain,u)
         new_V_2 = VectorFunctionSpace(Domain, 'P', 1)
         new_R_1 = VectorFunctionSpace(Domain, "R", 0)
         new_position_1 = Function(new_V_2)
-        new_position_1.assign(Expression(["x[0]", "x[1]"], element=new_V_2.ufl_element()))
+        new_position_1.assign(Expression(["x[0]", "x[1]","x[2]"], element=new_V_2.ufl_element()))
         new_c_1 = TestFunction(new_R_1)
         new_volume_1 = assemble(Constant(1.0)*dx(domain=Domain))
         new_centroid_1 = assemble(dot(new_c_1, new_position_1)*dx(domain=Domain))
@@ -84,8 +85,8 @@ def pdgf(counter,kk,u,vtkfile7,vtkfile8,cc) :
 
         #PDGF Parameters
         #kappa = Expression('20/(a+(tt/3))',degree=0,a=1,tt=kk)
-        kappa = cc
-        nu = 100
+        kappa = a
+        nu = 120
         beta = 20
         #######################################################################
 
@@ -95,23 +96,22 @@ def pdgf(counter,kk,u,vtkfile7,vtkfile8,cc) :
 
 
         #refer to the line 51 for explainantion
-        a1 = interpolate(aaa1,SS)
-        b1 = interpolate(bbb1,SS)
+        a = interpolate(aaa,SS)
+        b = interpolate(bbb,SS)
         #######################################################################
 
         #Defining Function P for PDGF on the deformed domain and a test function
         P = Function(SS)
         v = TestFunction(SS)
         #######################################################################
-        P0 = Expression('0.1*exp(-s*(x[0]-c1)*(x[0]-c1)-s*(x[1]-c2)*(x[1]-c2))',degree=0,s=0.3,c1 = -0.42,c2=-0.64)
-        DBC = DirichletBC(SS, P0, Boundary , 1)
+        #DBC = DirichletBC(SS, Constant(1.2), Boundary , 1)
 
         #Defining the functional
-        F= -nu*dot(grad(P),grad(v))*dx-beta*P*v*dx#+kappa*conditional(lt(a1,Constant(1)),1,0)*conditional(lt(b1,Constant(0.25)),1,0)*(1-P)*v*ds(1)
+        F= -nu*dot(grad(P),grad(v))*dx-beta*P*v*dx+kappa*conditional(lt(abs(a),Constant(0.15)),1,0)*conditional(lt(b,0),1,0)*(1-P)*v*ds(3)
         #######################################################################
 
         #Solve for P in the deformed domain
-        solve(F== 0, P ,DBC, solver_parameters={"newton_solver": {"relative_tolerance": 5e-10,
+        solve(F== 0, P , solver_parameters={"newton_solver": {"relative_tolerance": 5e-10,
                     "absolute_tolerance": 5e-10,"maximum_iterations": 500}})
         #######################################################################
 
